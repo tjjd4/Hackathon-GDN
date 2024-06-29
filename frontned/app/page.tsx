@@ -26,16 +26,30 @@ import {
 } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { track } from "@vercel/analytics";
+import queryString from "query-string";
+import { JwtPayload, jwtDecode } from "jwt-decode";
+import { db } from './firebase';
+import { collection, getDocs, doc, setDoc, getDoc, query, where } from 'firebase/firestore';
+import Member from "@/components/member"
+import useUserStore from "@/lib/store";
+import { MarketPlace } from "@/components/market-place";
 
 export default function Page() {
   const client = useSuiClient(); // The SuiClient instance
   const enokiFlow = useEnokiFlow(); // The EnokiFlow instance
   const { address: suiAddress } = useZkLogin(); // The zkLogin instance
+  const setUser = useUserStore(state => state.setUser);
+  const user = useUserStore(state => state.user);
 
+  const [oauthParams, setOauthParams] = useState<queryString.ParsedQuery<string>>();
   /* The account information of the current user. */
   const [balance, setBalance] = useState<number>(0);
   const [accountLoading, setAccountLoading] = useState<boolean>(true);
-
+  // const [oauthParams, setOauthParams] = useState<queryString.ParsedQuery<string>>();
+  const [jwtString, setJwtString] = useState("");
+  const [decodedJwt, setDecodedJwt] = useState<JwtPayload>();
+  const [activeStep, setActiveStep] = useState(0);
+  const [isLoading, setIsLoading] = useState<boolean>(false)
   /* Transfer form state */
   const [recipientAddress, setRecipientAddress] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
@@ -45,6 +59,10 @@ export default function Page() {
   const [counter, setCounter] = useState<number>(0);
   const [counterLoading, setCounterLoading] = useState<boolean>(false);
   const [countLoading, setCountLoading] = useState<boolean>(true);
+  const [users, setUsers] = useState([]);
+
+  console.log(user)
+  // const [user, setUser] = useState();
 
   /**
    * Timeout for the counter.
@@ -58,6 +76,52 @@ export default function Page() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const colRef = collection(db, 'users');
+        const q = query(colRef, where('address', '==', suiAddress));
+        const snapshot = await getDocs(q);
+        const usersList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        if (usersList.length > 0) {
+          setUser(usersList[0]);
+        } else {
+          console.log('No matching documents found');
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error.message);
+      }
+    };
+
+    fetchData();
+  }, [suiAddress]);
+
+console.log(user, suiAddress)
+
+  useEffect(() => {
+    updateUser(suiAddress, 20)
+  }, [suiAddress])
+
+  const updateUser = async (address: string, point: number) => {
+    try {
+      const docRef = doc(db, 'users', address);
+      const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      console.log('Document already exists!');
+    } else {
+      await setDoc(docRef, {
+        address: address,
+        point: point,
+      });
+      console.log('Document successfully written!');
+    }
+  } catch (error) {
+    console.error('Error writing document: ', error);
+  }
+  };
+  
+
   /**
    * When the user logs in, fetch the account information.
    */
@@ -69,19 +133,38 @@ export default function Page() {
   }, [suiAddress]);
 
   const startLogin = async () => {
+
+    // return null;
     const promise = async () => {
-      window.location.href = await enokiFlow.createAuthorizationURL({
+      enokiFlow.createAuthorizationURL({
         provider: "google",
         clientId: process.env.GOOGLE_CLIENT_ID!,
-        redirectUrl: `${window.location.origin}/auth`,
+        redirectUrl: `http://localhost:3000/auth`,
         network: "testnet",
-      });
+      })
+      .then((url: string) => {
+        console.log('url ', url)
+				window.location.href = url;
+
+        // window.alert(url)
+			})
+			.catch((error: string) => {
+				console.log(error);
+			});
+
+      // console.log()
+      // const redirect = window.location.hash
+
+      // localStorage.setItem('login', redirect)
     };
+
+    
 
     toast.promise(promise, {
       loading: "Loggin in...",
     });
   };
+  
 
   /**
    * Fetch the account information of the current user.
@@ -331,10 +414,30 @@ export default function Page() {
     });
   }
 
-  if (suiAddress) {
-    return (
+  useEffect(() => {
+    const res = queryString.parse(window.location.hash);
+    console.log('query', res, window.location.hash)
+    res ?? localStorage.setItem('login', res)
+    setOauthParams(res);
+  }, []);
+
+  // console.log('oauthParams', oauthParams)
+  useEffect(() => {
+    if (oauthParams && oauthParams.id_token) {
+      const decodedJwt = jwtDecode(oauthParams.id_token as string);
+      setJwtString(oauthParams.id_token as string);
+      setDecodedJwt(decodedJwt);
+      // loginBySub(oauthParams.id_token as string, decodedJwt.sub as string)
+      localStorage.setItem('oauth', oauthParams.id_token)
+    }
+  }, [oauthParams]);
+
+  return (
+    <div className="flex flex-col items-center justify-start">
+      {
+        suiAddress && (
       <div>
-        <h1 className="text-4xl font-bold m-4">Enoki Demo App</h1>
+        <h1 className="text-4xl font-bold m-4">GoodDeed</h1>
         <Popover>
           <PopoverTrigger className="absolute top-4 right-4 max-w-sm" asChild>
             <div>
@@ -344,7 +447,7 @@ export default function Page() {
                 ) : (
                   `${suiAddress?.slice(0, 5)}...${suiAddress?.slice(
                     63
-                  )} - ${balance.toPrecision(3)} SUI`
+                  )} - ${user?.point} tokens`
                 )}
               </Button>
               <Avatar className="block sm:hidden">
@@ -414,112 +517,21 @@ export default function Page() {
             </Card>
           </PopoverContent>
         </Popover>
-        <div className="flex flex-col items-center sm:flex-row gap-4 sm:items-start">
-          <Card className="max-w-xs">
-            <CardHeader>
-              <CardTitle>Sponsored Transaction Example</CardTitle>
-              <CardDescription>
-                This transaction will be sponsored by Enoki and will not require
-                you to pay gas! Try incrementing the counter with a balance of 0
-                SUI to test it out.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              <div className="flex flex-row items-center gap-2">
-                <span>Counter: </span>
-                {countLoading ? (
-                  <LoaderCircle className="animate-spin" />
-                ) : (
-                  <span>{counter}</span>
-                )}
-              </div>
-            </CardContent>
-            <CardFooter className="w-full flex flex-row items-center justify-center">
-              <Button
-                onClick={incrementCounter}
-                disabled={counterLoading}
-                className="w-full"
-              >
-                Increment counter
-              </Button>
-            </CardFooter>
-          </Card>
 
-          <Card className="max-w-xs">
-            <CardHeader>
-              <CardTitle>Transfer Transaction Example</CardTitle>
-              <CardDescription>
-                Transfer SUI to another account. This transaction is not
-                sponsored by the app.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col w-full gap-2">
-              <div className="grid w-full max-w-sm items-center gap-1.5">
-                <Label htmlFor="recipient">Recipient Address</Label>
-                <Input
-                  type="text"
-                  id="recipient"
-                  placeholder="0xdeadbeef"
-                  value={recipientAddress}
-                  onChange={(e) => setRecipientAddress(e.target.value)}
-                />
-              </div>
-              <div className="grid w-full max-w-sm items-center gap-1.5">
-                <Label htmlFor="amount">Transfer Amount (SUI)</Label>
-                <Input
-                  type="text"
-                  id="amount"
-                  placeholder="1.4"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value as any)}
-                />
-              </div>
-            </CardContent>
-            <CardFooter className="w-full flex flex-row items-center justify-center">
-              <Button
-                className="w-full"
-                onClick={transferSui}
-                disabled={transferLoading}
-              >
-                Transfer SUI
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
       </div>
-    );
-  }
+        )
+      }
 
-  return (
-    <div className="flex flex-col items-center justify-start">
-      <a
-        href="https://github.com/dantheman8300/enoki-example-app"
-        target="_blank"
-        className="absolute top-4 right-0 sm:right-4"
-        onClick={() => {
-          track("github");
-        }}
-      >
-        <Button variant={"link"} size={"icon"}>
-          <Github />
-        </Button>
-      </a>
-      <div>
-        <h1 className="text-4xl font-bold m-4">Enoki Demo App</h1>
-        <p className="text-md m-4 opacity-50 max-w-md">
-          This is a demo app that showcases the{" "}
-          <a
-            href="https://portal.enoki.mystenlabs.com"
-            target="_blank"
-            className="underline cursor-pointer text-blue-700 hover:text-blue-500"
-          >
-            Enoki
-          </a>{" "}
-          zkLogin flow and sponsored transaction flow. NOTE: This example runs
-          on the <span className="text-blue-700">Sui test network</span>
-        </p>
+      {
+        !suiAddress && ( 
+<>
+<h1 className="text-4xl font-bold m-4">Enoki Demo App</h1>
+      <Button className="absolute right-5 top-5" onClick={startLogin}>Sign in with Google</Button>    
+      
+</>
+         )
+      }
+      <Member />
       </div>
-      <Button onClick={startLogin}>Sign in with Google</Button>
-    </div>
   );
 }
