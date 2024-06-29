@@ -1,11 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Transaction } from "@mysten/sui/transactions";
-import { useSuiClient } from "@mysten/dapp-kit";
-import { useEnokiFlow, useZkLogin } from "@mysten/enoki/react";
-import { getFaucetHost, requestSuiFromFaucetV0 } from "@mysten/sui/faucet";
-import { ExternalLink, Github, LoaderCircle, RefreshCw } from "lucide-react";
+import { getBalance } from "@/actions/get_balance";
+import Member from "@/components/member";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,41 +12,58 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
-import { BalanceChange } from "@mysten/sui/client";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { track } from "@vercel/analytics";
-import queryString from "query-string";
-import { JwtPayload, jwtDecode } from "jwt-decode";
-import { db } from './firebase';
-import { collection, getDocs, doc, setDoc, getDoc, query, where } from 'firebase/firestore';
-import Member from "@/components/member"
 import useUserStore from "@/lib/store";
-import { MarketPlace } from "@/components/market-place";
+import { useSuiClient } from "@mysten/dapp-kit";
+import { useEnokiFlow, useZkLogin } from "@mysten/enoki/react";
+import { BalanceChange } from "@mysten/sui/client";
+import { getFaucetHost, requestSuiFromFaucetV0 } from "@mysten/sui/faucet";
+import { Transaction } from "@mysten/sui/transactions";
+import { skipToken, useQuery } from "@tanstack/react-query";
+import { track } from "@vercel/analytics";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+  where,
+} from "firebase/firestore";
+import { JwtPayload, jwtDecode } from "jwt-decode";
+import { ExternalLink, LoaderCircle } from "lucide-react";
+import queryString from "query-string";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { db } from "./firebase";
 
 export default function Page() {
   const client = useSuiClient(); // The SuiClient instance
   const enokiFlow = useEnokiFlow(); // The EnokiFlow instance
   const { address: suiAddress } = useZkLogin(); // The zkLogin instance
-  const setUser = useUserStore(state => state.setUser);
-  const user = useUserStore(state => state.user);
+  const setUser = useUserStore((state) => state.setUser);
+  const user = useUserStore((state) => state.user);
 
-  const [oauthParams, setOauthParams] = useState<queryString.ParsedQuery<string>>();
+  const [oauthParams, setOauthParams] =
+    useState<queryString.ParsedQuery<string>>();
   /* The account information of the current user. */
   const [balance, setBalance] = useState<number>(0);
+  // const [tokenBalance, setTokenBalance] = useState<number>(0);
+  // const [tokenBalanceLoading, setTokenBalanceLoading] = useState<boolean>(true);
+  const { data: tokenBalance, isLoading: tokenBalanceLoading } = useQuery({
+    queryKey: ["tokenBalance", suiAddress],
+    queryFn: !!suiAddress ? () => getBalance(suiAddress) : skipToken,
+  });
   const [accountLoading, setAccountLoading] = useState<boolean>(true);
   // const [oauthParams, setOauthParams] = useState<queryString.ParsedQuery<string>>();
   const [jwtString, setJwtString] = useState("");
   const [decodedJwt, setDecodedJwt] = useState<JwtPayload>();
   const [activeStep, setActiveStep] = useState(0);
-  const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   /* Transfer form state */
   const [recipientAddress, setRecipientAddress] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
@@ -61,9 +75,6 @@ export default function Page() {
   const [countLoading, setCountLoading] = useState<boolean>(true);
   const [users, setUsers] = useState([]);
 
-  console.log(user)
-  // const [user, setUser] = useState();
-
   /**
    * Timeout for the counter.
    * This is used to refresh the counter every 5 seconds.
@@ -72,55 +83,57 @@ export default function Page() {
     const interval = setInterval(() => {
       getCount();
     }, 5000);
-    
+
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const colRef = collection(db, 'users');
-        const q = query(colRef, where('address', '==', suiAddress));
+        const colRef = collection(db, "users");
+        const q = query(colRef, where("address", "==", suiAddress));
         const snapshot = await getDocs(q);
-        const usersList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const usersList = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
         if (usersList.length > 0) {
           setUser(usersList[0]);
         } else {
-          console.log('No matching documents found');
+          console.log("No matching documents found");
         }
       } catch (error) {
-        console.error('Error fetching user:', error.message);
+        console.error("Error fetching user:", error.message);
       }
     };
 
     fetchData();
   }, [suiAddress]);
 
-console.log(user, suiAddress)
+  console.log(user, suiAddress);
 
   useEffect(() => {
-    updateUser(suiAddress, 20)
-  }, [suiAddress])
+    updateUser(suiAddress, 20);
+  }, [suiAddress]);
 
   const updateUser = async (address: string, point: number) => {
     try {
-      const docRef = doc(db, 'users', address);
+      const docRef = doc(db, "users", address);
       const docSnap = await getDoc(docRef);
 
-    if (docSnap.exists()) {
-      console.log('Document already exists!');
-    } else {
-      await setDoc(docRef, {
-        address: address,
-        point: point,
-      });
-      console.log('Document successfully written!');
+      if (docSnap.exists()) {
+        console.log("Document already exists!");
+      } else {
+        await setDoc(docRef, {
+          address: address,
+          point: point,
+        });
+        console.log("Document successfully written!");
+      }
+    } catch (error) {
+      console.error("Error writing document: ", error);
     }
-  } catch (error) {
-    console.error('Error writing document: ', error);
-  }
   };
-  
 
   /**
    * When the user logs in, fetch the account information.
@@ -133,38 +146,30 @@ console.log(user, suiAddress)
   }, [suiAddress]);
 
   const startLogin = async () => {
-
     // return null;
     const promise = async () => {
-      enokiFlow.createAuthorizationURL({
-        provider: "google",
-        clientId: process.env.GOOGLE_CLIENT_ID!,
-        redirectUrl: `http://localhost:3000/auth`,
-        network: "testnet",
-      })
-      .then((url: string) => {
-        console.log('url ', url)
-				window.location.href = url;
+      enokiFlow
+        .createAuthorizationURL({
+          provider: "google",
+          clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+          redirectUrl: `http://localhost:3000/auth`,
+          network: "testnet",
+        })
+        .then((url: string) => {
+          console.log("url ", url);
+          window.location.href = url;
 
-        // window.alert(url)
-			})
-			.catch((error: string) => {
-				console.log(error);
-			});
-
-      // console.log()
-      // const redirect = window.location.hash
-
-      // localStorage.setItem('login', redirect)
+          // window.alert(url)
+        })
+        .catch((error: string) => {
+          console.log(error);
+        });
     };
-
-    
 
     toast.promise(promise, {
       loading: "Loggin in...",
     });
   };
-  
 
   /**
    * Fetch the account information of the current user.
@@ -416,122 +421,140 @@ console.log(user, suiAddress)
 
   useEffect(() => {
     const res = queryString.parse(window.location.hash);
-    console.log('query', res, window.location.hash)
-    res ?? localStorage.setItem('login', res)
+    console.log("query", res, window.location.hash);
+    res ?? localStorage.setItem("login", res);
     setOauthParams(res);
   }, []);
 
-  // console.log('oauthParams', oauthParams)
   useEffect(() => {
     if (oauthParams && oauthParams.id_token) {
       const decodedJwt = jwtDecode(oauthParams.id_token as string);
       setJwtString(oauthParams.id_token as string);
       setDecodedJwt(decodedJwt);
       // loginBySub(oauthParams.id_token as string, decodedJwt.sub as string)
-      localStorage.setItem('oauth', oauthParams.id_token)
+      localStorage.setItem("oauth", oauthParams.id_token);
     }
   }, [oauthParams]);
 
   return (
     <div className="flex flex-col items-center justify-start">
-      {
-        suiAddress && (
-      <div>
-        <h1 className="text-4xl font-bold m-4">GoodDeed</h1>
-        <Popover>
-          <PopoverTrigger className="absolute top-4 right-4 max-w-sm" asChild>
-            <div>
-              <Button className="hidden sm:block" variant={"secondary"}>
-                {accountLoading ? (
-                  <LoaderCircle className="animate-spin" />
-                ) : (
-                  `${suiAddress?.slice(0, 5)}...${suiAddress?.slice(
-                    63
-                  )} - ${user?.point ? user?.point : 0} tokens`
-                )}
-              </Button>
-              <Avatar className="block sm:hidden">
-                <AvatarImage src="https://github.com/shadcn.png" />
-                <AvatarFallback>CN</AvatarFallback>
-              </Avatar>
-            </div>
-          </PopoverTrigger>
-          <PopoverContent>
-            <Card className="border-none shadow-none">
-              {/* <Button variant={'ghost'} size='icon' className="relative top-0 right-0" onClick={getAccountInfo}><RefreshCw width={16} /></Button> */}
-              <CardHeader>
-                <CardTitle>Account Info</CardTitle>
-                {/* <CardDescription>
-                  View the account generated by Enoki&apos;s zkLogin flow.
-                </CardDescription> */}
-              </CardHeader>
-              <CardContent>
-                {accountLoading ? (
-                  <div className="w-full flex flex-col items-center">
-                    <LoaderCircle className="animate-spin" />
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex flex-row gap-1 items-center">
-                      <span>Address: </span>
-                      {accountLoading ? (
+      {suiAddress && (
+        <>
+          <div>
+            {/* <button
+            onClick={async () => {
+              // const balance = await getBalance(suiAddress);
+              // console.log(balance);
+
+              await transfer(
+                suiAddress,
+                "0x1027627a30ceaa4e7ec3d21bda45e10b806e520f8958a3d656cb335705b5cc74",
+                10
+              );
+            }}
+          >
+            Click me
+          </button> */}
+            <h1 className="text-4xl font-bold m-4">GoodDeed</h1>
+            <Popover>
+              <PopoverTrigger
+                className="absolute top-4 right-4 max-w-sm"
+                asChild
+              >
+                <div>
+                  <Button className="hidden sm:block" variant={"secondary"}>
+                    {accountLoading || tokenBalanceLoading ? (
+                      <LoaderCircle className="animate-spin" />
+                    ) : (
+                      `${suiAddress?.slice(0, 5)}...${suiAddress?.slice(
+                        63
+                      )} - ${tokenBalance} tokens`
+                    )}
+                  </Button>
+                  <Avatar className="block sm:hidden">
+                    <AvatarImage src="https://github.com/shadcn.png" />
+                    <AvatarFallback>CN</AvatarFallback>
+                  </Avatar>
+                </div>
+              </PopoverTrigger>
+              <PopoverContent>
+                <Card className="border-none shadow-none">
+                  {/* <Button variant={'ghost'} size='icon' className="relative top-0 right-0" onClick={getAccountInfo}><RefreshCw width={16} /></Button> */}
+                  <CardHeader>
+                    <CardTitle>Account Info</CardTitle>
+                    <CardDescription>
+                      View the account generated by Enoki&apos;s zkLogin flow.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {accountLoading ? (
+                      <div className="w-full flex flex-col items-center">
                         <LoaderCircle className="animate-spin" />
-                      ) : (
-                        <div className="flex flex-row gap-1">
-                          <span>{`${suiAddress?.slice(
-                            0,
-                            5
-                          )}...${suiAddress?.slice(63)}`}</span>
-                          <a
-                            href={`https://suiscan.xyz/testnet/account/${suiAddress}`}
-                            target="_blank"
-                          >
-                            <ExternalLink width={12} />
-                          </a>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex flex-row gap-1 items-center">
+                          <span>Address: </span>
+                          {accountLoading ? (
+                            <LoaderCircle className="animate-spin" />
+                          ) : (
+                            <div className="flex flex-row gap-1">
+                              <span>{`${suiAddress?.slice(
+                                0,
+                                5
+                              )}...${suiAddress?.slice(63)}`}</span>
+                              <a
+                                href={`https://suiscan.xyz/testnet/account/${suiAddress}`}
+                                target="_blank"
+                              >
+                                <ExternalLink width={12} />
+                              </a>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <div>
-                      <span>Tokens: </span>
-                      <span>{user?.point ? user?.point : 0}</span>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-              <CardFooter className="flex flex-row gap-2 items-center justify-between">
-                {/* <Button variant={"outline"} size={"sm"} onClick={onRequestSui}>
-                  Request SUI
-                </Button> */}
-                <Button
-                  variant={"destructive"}
-                  size={"sm"}
-                  className="w-full text-center"
-                  onClick={async () => {
-                    await enokiFlow.logout();
-                    window.location.reload();
-                  }}
-                >
-                  Logout
-                </Button>
-              </CardFooter>
-            </Card>
-          </PopoverContent>
-        </Popover>
+                        <div>
+                          <span>Balance: </span>
+                          <span>{balance.toPrecision(3)} SUI</span>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                  <CardFooter className="flex flex-row gap-2 items-center justify-between">
+                    <Button
+                      variant={"outline"}
+                      size={"sm"}
+                      onClick={onRequestSui}
+                    >
+                      Request SUI
+                    </Button>
+                    <Button
+                      variant={"destructive"}
+                      size={"sm"}
+                      className="w-full text-center"
+                      onClick={async () => {
+                        await enokiFlow.logout();
+                        window.location.reload();
+                      }}
+                    >
+                      Logout
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </PopoverContent>
+            </Popover>
+          </div>
+          <Member address={suiAddress} />
+        </>
+      )}
 
-      </div>
-        )
-      }
-
-      {
-        !suiAddress && ( 
-<>
-<h1 className="text-4xl font-bold m-4">Enoki Demo App</h1>
-      <Button className="absolute right-5 top-5" onClick={startLogin}>Sign in with Google</Button>    
-      
-</>
-         )
-      }
-      <Member />
-      </div>
+      {!suiAddress && (
+        <>
+          <h1 className="text-4xl font-bold m-4">Enoki Demo App</h1>
+          <Button className="absolute right-5 top-5" onClick={startLogin}>
+            Sign in with Google
+          </Button>
+        </>
+      )}
+    </div>
   );
 }

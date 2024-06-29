@@ -1,21 +1,19 @@
-'use client';
+"use client";
 
 import { useAuthCallback } from "@mysten/enoki/react";
 import { useEffect } from "react";
 import { ScaleLoader } from "react-spinners";
-import { useHash } from "@/lib/getHash" 
+import { useHash } from "@/lib/getHash";
 
 export default function Page() {
-
   const { handled } = useAuthCallback(); // This hook will handle the callback from the authentication provider
-  const getHash = useHash()
-  console.log('getHash', getHash)
-  console.log('handled', handled)
+  const getHash = useHash();
+
   useEffect(() => {
     if (handled) {
-     window.location.href = "/";
+      window.location.href = "/";
     }
-}, [handled]);
+  }, [handled]);
 
   return (
     <div className="flex flex-col items-center justify-center w-full h-screen">
