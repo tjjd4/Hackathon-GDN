@@ -26,7 +26,9 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLab
 
 export function MarketPlace() {
   return (
+    
     <div className="flex flex-col min-h-[100dvh]">
+      
       <div className="text-primary-foreground py-4 px-6 flex items-center justify-between">
         <Link href="#" className="flex items-center gap-2 font-semibold text-lg text-black" prefetch={false}>
           <TicketIcon className="h-6 w-6" />
