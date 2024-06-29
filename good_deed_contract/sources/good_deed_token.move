@@ -39,7 +39,8 @@ module good_deed_contract::gooddeedtoken {
     public fun mint_and_transfer_with_cap<T> (
         token_policy: &token::TokenPolicy<T>, 
         treasury_cap: &mut coin::TreasuryCap<T>, 
-        amount: u64, recipient: address, 
+        amount: u64, 
+        recipient: address, 
         ctx: &mut TxContext
     ) {
         let mint_token = token::mint(treasury_cap, amount, ctx);
@@ -60,8 +61,8 @@ module good_deed_contract::gooddeedtoken {
         token::burn(treasury_cap, token);
     }
 
-    public fun add_approve_address_from_cap<T>(token_policy: &mut token::TokenPolicy<T>, token_policy_cap: &token::TokenPolicyCap<T>, approve_addresses: vector<address>, ctx: &mut TxContext) {
-        allowlist_rule::add_records(token_policy, token_policy_cap, approve_addresses, ctx);
+    public fun add_approve_address_from_cap<T>(token_policy: &mut token::TokenPolicy<T>, token_policy_cap: &token::TokenPolicyCap<T>, addresses: vector<address>, ctx: &mut TxContext) {
+        allowlist_rule::add_records(token_policy, token_policy_cap, addresses, ctx);
     }
 
 
