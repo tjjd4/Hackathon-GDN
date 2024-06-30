@@ -146,30 +146,25 @@ export default function Page() {
   }, [suiAddress]);
 
   const startLogin = async () => {
-    // return null;
-    const promise = async () => {
-      enokiFlow
-        .createAuthorizationURL({
+    // Check if `window` is available
+    if (typeof window !== "undefined") {
+      const promise = async () => {
+        window.location.href = await enokiFlow.createAuthorizationURL({
           provider: "google",
           clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-          redirectUrl: `http://localhost:3000/auth`,
+          redirectUrl: `${window.location.origin}/auth`,
           network: "testnet",
-        })
-        .then((url: string) => {
-          console.log("url ", url);
-          typeof window !== 'undefined' ?? window.location.href = url;
-
-          // window.alert(url)
-        })
-        .catch((error: string) => {
-          console.log(error);
         });
-    };
-
-    toast.promise(promise, {
-      loading: "Loggin in...",
-    });
+      };
+  
+      toast.promise(promise(), {
+        loading: "Logging in...",
+      });
+    } else {
+      console.error("window is not defined. This code is running in a non-browser environment.");
+    }
   };
+  
 
   /**
    * Fetch the account information of the current user.
