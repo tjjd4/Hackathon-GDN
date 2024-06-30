@@ -420,16 +420,6 @@ export default function Page() {
   }
 
   useEffect(() => {
-    if(typeof window !== 'undefined'){
-      const res = queryString.parse(window.location.hash);
-      console.log("query", res, window.location.hash);
-      res ?? localStorage.setItem("login", res);
-      setOauthParams(res);
-    }
-    
-  }, []);
-
-  useEffect(() => {
     if (oauthParams && oauthParams.id_token) {
       const decodedJwt = jwtDecode(oauthParams.id_token as string);
       setJwtString(oauthParams.id_token as string);
