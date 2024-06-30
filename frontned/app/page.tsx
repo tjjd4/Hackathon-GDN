@@ -46,8 +46,6 @@ export default function Page() {
 
   const isClient = useIsClient()
 
-  if(!isClient) return null
-
   const client = useSuiClient(); // The SuiClient instance
   const enokiFlow = useEnokiFlow(); // The EnokiFlow instance
   const { address: suiAddress } = useZkLogin(); // The zkLogin instance
@@ -377,6 +375,8 @@ export default function Page() {
       localStorage.setItem("oauth", oauthParams.id_token);
     }
   }, [oauthParams]);
+
+  if(!isClient) return null
 
   return (
     <div className="flex flex-col items-center justify-start">
