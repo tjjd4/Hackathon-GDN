@@ -157,7 +157,7 @@ export default function Page() {
         })
         .then((url: string) => {
           console.log("url ", url);
-          window.location.href = url;
+          typeof window !== 'undefined' ?? window.location.href = url;
 
           // window.alert(url)
         })
@@ -420,10 +420,13 @@ export default function Page() {
   }
 
   useEffect(() => {
-    const res = queryString.parse(window.location.hash);
-    console.log("query", res, window.location.hash);
-    res ?? localStorage.setItem("login", res);
-    setOauthParams(res);
+    if(typeof window !== 'undefined'){
+      const res = queryString.parse(window.location.hash);
+      console.log("query", res, window.location.hash);
+      res ?? localStorage.setItem("login", res);
+      setOauthParams(res);
+    }
+    
   }, []);
 
   useEffect(() => {

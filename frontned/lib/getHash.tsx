@@ -14,7 +14,7 @@ const useHash = () => {
     const handleHashChange = () => {
       setHash(getHash());
     };
-    window.addEventListener('hashchange', handleHashChange);
+    typeof window !== 'undefined' ?? window.addEventListener('hashchange', handleHashChange);
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
