@@ -40,8 +40,14 @@ import queryString from "query-string";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { db } from "./firebase";
+import useIsClient from "@/hooks/isClient";
 
 export default function Page() {
+
+  const isClient = useIsClient()
+
+  if(!isClient) return null
+
   const client = useSuiClient(); // The SuiClient instance
   const enokiFlow = useEnokiFlow(); // The EnokiFlow instance
   const { address: suiAddress } = useZkLogin(); // The zkLogin instance
@@ -180,58 +186,6 @@ export default function Page() {
     setBalance(parseInt(balance.totalBalance) / 10 ** 9);
 
     setAccountLoading(false);
-  };
-
-  /**
-   * Request SUI from the faucet.
-   */
-  const onRequestSui = async () => {
-    const promise = async () => {
-      track("Request SUI");
-
-      // Ensures the user is logged in and has a SUI address.
-      if (!suiAddress) {
-        throw new Error("No SUI address found");
-      }
-
-      if (balance > 3) {
-        throw new Error("You already have enough SUI!");
-      }
-
-      // Request SUI from the faucet.
-      const res = await requestSuiFromFaucetV0({
-        host: getFaucetHost("testnet"),
-        recipient: suiAddress,
-      });
-
-      if (res.error) {
-        throw new Error(res.error);
-      }
-
-      return res;
-    };
-
-    toast.promise(promise, {
-      loading: "Requesting SUI...",
-      success: (data) => {
-        console.log("SUI requested successfully!", data);
-
-        const suiBalanceChange = data.transferredGasObjects
-          .map((faucetUpdate) => {
-            return faucetUpdate.amount / 10 ** 9;
-          })
-          .reduce((acc: number, change: any) => {
-            return acc + change;
-          }, 0);
-
-        setBalance(balance + suiBalanceChange);
-
-        return "SUI requested successfully! ";
-      },
-      error: (error) => {
-        return error.message;
-      },
-    });
   };
 
   /**
