@@ -4,8 +4,9 @@ import { enokiClient } from "@/lib/enokiClient";
 import { suiClient } from "@/lib/suiClient";
 import { fromB64, toB64 } from "@mysten/bcs";
 import { Transaction } from "@mysten/sui/transactions";
-import { admin, admin_kp, getTokenToBeSent } from "./common";
+import { admin, admin_kp } from "./common";
 import { getBalance } from "./get_balance";
+import { getTokenToBeSent } from "./get_token_to_spend";
 
 export const transfer = async (
   sender: string,
@@ -23,8 +24,11 @@ export const transfer = async (
   tx.moveCall({
     target: `${process.env.NEXT_PUBLIC_PACKAGE_ID}::gooddeedtoken::transfer`,
     arguments: [tx.object(tokenToBeSent), tx.pure.address(recipient)],
+    typeArguments: [
+      `${process.env.NEXT_PUBLIC_PACKAGE_ID}::gooddeedtoken::GOODDEEDTOKEN`,
+    ],
   });
-  tx.setSenderIfNotSet(sender);
+  tx.setSender(sender);
 
   const txBytes = await tx.build({
     client: suiClient,
